@@ -13,6 +13,7 @@ http.Request 是用户的请求信息，一般用 r 作为简写。
 http.ResponseWriter 是返回用户的响应，一般用 w 作为简写。
  */
 func handlerFunc(w http.ResponseWriter, r *http.Request) {
+     w.Header().Set("Content-Type", "text/html; charset=utf-8")
      if r.URL.Path == "/" {
         fmt.Fprint(w, "<h1>Hello, 这里是 goblog</h1>")
     } else if r.URL.Path == "/about" {
