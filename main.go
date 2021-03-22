@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/gorilla/mux"
 	"html/template"
@@ -8,6 +9,12 @@ import (
 	"net/url"
 	"strings"
 	"unicode/utf8"
+	/**
+	因为引入的是驱动，操作数据库时我们使用的是 sql 库里的方法，而不会具体使用到 go-sql-driver/mysql 包里的方法，
+	当有未使用的包被引入时，Go 编译器会停止编译。
+	为了让编译器能正常运行，需要使用 匿名导入 来加载。
+	 */
+	_ "github.com/go-sql-driver/mysql"
 )
 
 //包级别的变量声明时不能使用 := 语法，修改为带关键词 var 的变量声明
@@ -202,3 +209,7 @@ func main() {
 	//http.ListenAndServe 用以监听本地 3000 端口以提供服务，标准的 HTTP 端口是 80 端口
 	http.ListenAndServe(":3000", removeTrailingSlash(router))
 }
+func init() {
+	sql.Register("mysql", &MySQLDriver{})
+}
+
