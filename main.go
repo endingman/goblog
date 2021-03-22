@@ -3,12 +3,21 @@ package main
 import (
 	"fmt"
 	"github.com/gorilla/mux"
+	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
+	"unicode/utf8"
 )
 
 //包级别的变量声明时不能使用 := 语法，修改为带关键词 var 的变量声明
 var router = mux.NewRouter().StrictSlash(true)
+
+type ArticlesFormData struct {
+	Title, Body string
+	URL         *url.URL
+	Errors      map[string]string
+}
 
 /**
 http.HandleFunc 用以指定处理 HTTP 请求的函数，
@@ -48,6 +57,8 @@ func articlesIndexHandler(w http.ResponseWriter, r *http.Request) {
 func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 	//Form：存储了 post、put 和 get 参数，在使用之前需要调用 ParseForm 方法。
 	//PostForm：存储了 post、put 参数，在使用之前需要调用 ParseForm 方法。
+
+	/**
 	err := r.ParseForm()
 	if err != nil {
 		fmt.Fprint(w, "请提供正确的参数")
@@ -55,6 +66,7 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	title := r.PostForm.Get("title")
+
 
 	fmt.Fprintf(w, "POST PostForm: %v <br>", r.PostForm)
 	fmt.Fprintf(w, "POST Form: %v <br>", r.Form)
@@ -66,7 +78,79 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "r.PostForm 中 title 的值为: %v <br>", r.PostFormValue("title"))
 	fmt.Fprintf(w, "r.Form 中 test 的值为: %v <br>", r.FormValue("test"))
 	fmt.Fprintf(w, "r.PostForm 中 test 的值为: %v <br>", r.PostFormValue("test"))
+	*/
 
+	title := r.PostFormValue("title")
+	body := r.PostFormValue("body")
+
+	errors := make(map[string]string)
+
+	// 验证标题
+	if title == "" {
+		errors["title"] = "标题不能为空"
+		/**
+		Go 语言的内建函数 len ()，可以用来获取切片、字符串、通道（channel）等的长度。
+
+		这里的差异是由于 Go 语言的字符串都以 UTF-8 格式保存，每个中文占用 3 个字节，因此使用 len () 获得两个中文文字对应的 6 个字节。
+
+		如果希望按习惯上的字符个数来计算，就需要使用 Go 语言中 utf8 包提供的 RuneCountInString () 函数来计数
+		*/
+	} else if utf8.RuneCountInString(title) < 3 || utf8.RuneCountInString(title) > 40 {
+		errors["title"] = "标题长度需介于 3-40"
+	}
+
+	// 验证内容
+	if body == "" {
+		errors["body"] = "内容不能为空"
+	} else if utf8.RuneCountInString(body) < 10 {
+		errors["body"] = "内容长度需大于或等于 10 个字节"
+	}
+
+	// 检查是否有错误
+	if len(errors) == 0 {
+		fmt.Fprint(w, "验证通过!<br>")
+		fmt.Fprintf(w, "title 的值为: %v <br>", title)
+		fmt.Fprintf(w, "title 的长度为: %v <br>", utf8.RuneCountInString(title))
+		fmt.Fprintf(w, "body 的值为: %v <br>", body)
+		fmt.Fprintf(w, "body 的长度为: %v <br>", utf8.RuneCountInString(body))
+	} else {
+		html := `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>创建文章 —— 我的技术博客</title>
+    <style type="text/css">.error {color: red;}</style>
+</head>
+<body>
+    <form action="{{ .URL }}" method="post">
+        <p><input type="text" name="title" value="{{ .Title }}"></p>
+        {{ with .Errors.title }}
+        <p class="error">{{ . }}</p>
+        {{ end }}
+        <p><textarea name="body" cols="30" rows="10">{{ .Body }}</textarea></p>
+        {{ with .Errors.body }}
+        <p class="error">{{ . }}</p>
+        {{ end }}
+        <p><button type="submit">提交</button></p>
+    </form>
+</body>
+</html>
+`
+		storeURL, _ := router.Get("articles.store").URL()
+
+		data := ArticlesFormData{
+			Title:  title,
+			Body:   body,
+			URL:    storeURL,
+			Errors: errors,
+		}
+		tmpl, err := template.New("create-form").Parse(html)
+		if err != nil {
+			panic(err)
+		}
+
+		tmpl.Execute(w, data)
+	}
 }
 
 func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +161,6 @@ func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
     <title>创建文章 —— 我的技术博客</title>
 </head>
 <body>
-	
     <form action="%s?test=data" method="post">
         <p><input type="text" name="title"></p>
         <p><textarea name="body" cols="30" rows="10"></textarea></p>
