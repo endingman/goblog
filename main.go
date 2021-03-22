@@ -26,7 +26,7 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
     w.WriteHeader(http.StatusNotFound)
     fmt.Fprint(w, "<h1>请求页面未找到 :(</h1><p>如有疑惑，请联系我们。</p>")
 }
@@ -45,6 +45,15 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
     fmt.Fprint(w, "创建新的文章")
 }
 
+func forceHTMLMiddleware(next http.Handler)  http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. 设置标头
+        w.Header().Set("Content-Type", "text/html; charset=utf-8")
+        // 2. 继续处理请求
+        next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	router := mux.NewRouter()//mux路由，gorilla/mux 因实现了 net/http 包的 http.Handler 接口，故兼容 http.ServeMux
 
@@ -57,6 +66,9 @@ func main() {
 
     // 自定义 404 页面
     router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
+
+	// 中间件：强制内容类型为 HTML
+	router.Use(forceHTMLMiddleware)
 
     // 通过命名路由获取 URL 示例
     homeURL, _ := router.Get("home").URL()
