@@ -3,9 +3,11 @@ package controllers
 import (
 	"database/sql"
 	"fmt"
+	"goblog/app/models/article"
 	"goblog/pkg/logger"
 	"goblog/pkg/route"
 	"goblog/pkg/types"
+	"html/template"
 	"net/http"
 )
 
@@ -16,8 +18,8 @@ func (*ArticlesController) Show(w http.ResponseWriter, r *http.Request) {
 	//	获取URL参数
 	id := route.GetRouteVariable("id", r)
 
-	//读取对应文章数据
-	article, err := getArticleByID(id)
+	// 2. 读取对应的文章数据
+	article, err := article.Get(id)
 
 	//	如果出现错误
 	if err != nil {
@@ -35,8 +37,8 @@ func (*ArticlesController) Show(w http.ResponseWriter, r *http.Request) {
 		// 4. 读取成功，显示文章
 		tmpl, err := template.New("show.gohtml").
 			Funcs(template.FuncMap{
-				"RouteName2URL":       route.Name2URL,
-				"types.Int64ToString": types.Int64ToString,
+				"RouteName2URL": route.Name2URL,
+				"Int64ToString": types.Int64ToString,
 			}).
 			ParseFiles("resources/views/articles/show.gohtml")
 		logger.LogError(err)

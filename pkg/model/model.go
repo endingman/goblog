@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	// GORM 的 MSYQL 数据库驱动导入
+	// GORM 的 MYSQL 数据库驱动导入
 	"gorm.io/driver/mysql"
 )
 
@@ -18,7 +18,7 @@ func ConnectDB() *gorm.DB {
 	var err error
 
 	config := mysql.New(mysql.Config{
-		DSN: "root:secret@tcp(127.0.0.1:3306)/goblog?charset=utf8&parseTime=True&loc=Local",
+		DSN: "homestead:secret@tcp(127.0.0.1:33060)/goblog?charset=utf8&parseTime=True&loc=Local",
 	})
 
 	// 准备数据库连接池
