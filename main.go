@@ -7,11 +7,11 @@ import (
 	"github.com/gorilla/mux"
 	"goblog/pkg/logger"
 	"goblog/pkg/route"
+	"goblog/pkg/types"
 	"html/template"
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -197,8 +197,8 @@ func articlesShowHandler(w http.ResponseWriter, r *http.Request) {
 		// 4. 读取成功，显示文章
 		tmpl, err := template.New("show.gohtml").
 			Funcs(template.FuncMap{
-				"RouteName2URL": route.Name2URL,
-				"Int64ToString": Int64ToString,
+				"RouteName2URL":       route.Name2URL,
+				"types.Int64ToString": types.Int64ToString,
 			}).
 			ParseFiles("resources/views/articles/show.gohtml")
 		logger.LogError(err)
@@ -276,7 +276,7 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 			// Go 标准库的 strconv 包。此包主要提供字符串和其他类型之间转换的函数。
 			//类型转换在脚本类语言例如说 PHP 或者 JS 中不需要太重视，
 			// 但在 Go 强类型语言中是一个很重要的概念。
-			fmt.Fprint(w, "插入成功，ID为"+Int64ToString(lastInsertId))
+			fmt.Fprint(w, "插入成功，ID为"+types.Int64ToString(lastInsertId))
 		} else {
 			logger.LogError(err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -422,7 +422,7 @@ func articlesDeleteHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a Article) Delete() (rowsAffected int64, err error) {
-	rs, err := db.Exec("DELETE FROM articles WHERE id = " + Int64ToString(a.ID))
+	rs, err := db.Exec("DELETE FROM articles WHERE id = " + types.Int64ToString(a.ID))
 
 	if err != nil {
 		return 0, err
@@ -602,15 +602,10 @@ o.method()
 function()
 */
 func (a Article) Link() string {
-	showURL, err := router.Get("articles.show").URL("id", Int64ToString(a.ID))
+	showURL, err := router.Get("articles.show").URL("id", types.Int64ToString(a.ID))
 	if err != nil {
 		logger.LogError(err)
 		return ""
 	}
 	return showURL.String()
-}
-
-// Int64ToString 将 int64 转换为 string
-func Int64ToString(num int64) string {
-	return strconv.FormatInt(num, 10)
 }
