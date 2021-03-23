@@ -88,7 +88,29 @@ func articlesShowHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func articlesIndexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "访问文章列表")
+	//	执行查询语句，返回一个结果集
+	rows, err := db.Query("SELECT  * FROM  articles")
+	checkError(err)
+	defer rows.Close()
+
+	var articles []Article
+	//循环读取结果
+	for rows.Next() {
+		var article Article
+		//	扫描数据赋值给article对象中
+		err := rows.Scan(&article.ID, &article.Title, &article.Body)
+		checkError(err)
+		//	追加到数组中
+		articles = append(articles, article)
+	}
+	//	检测遍历时是否发生错误
+	err = rows.Err()
+	checkError(err)
+	//加载模板
+	tmpl, err := template.ParseFiles("resources/views/articles/index.gohtml")
+	checkError(err)
+	//	渲染模板
+	tmpl.Execute(w, articles)
 }
 
 func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
@@ -490,4 +512,35 @@ func validateArticleFormData(title string, body string) map[string]string {
 	}
 
 	return errors
+}
+
+/**
+type Object struct {
+    ...
+}
+// Object 的方法
+func (obj *Object) method() {
+    ...
+}
+
+// 只是一个函数
+func function() {
+    ...
+}
+
+调用的对比
+// 调用方法：
+o := new(Object)
+o.method()
+
+// 调用函数
+function()
+*/
+func (a Article) Link() string {
+	showURL, err := router.Get("articles.show").URL("id", strconv.FormatInt(a.ID, 10))
+	if err != nil {
+		checkError(err)
+		return ""
+	}
+	return showURL.String()
 }
