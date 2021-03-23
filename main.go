@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -124,6 +125,19 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "title 的长度为: %v <br>", utf8.RuneCountInString(title))
 		fmt.Fprintf(w, "body 的值为: %v <br>", body)
 		fmt.Fprintf(w, "body 的长度为: %v <br>", utf8.RuneCountInString(body))
+
+		lastInsertId, err := saveArticleToDB(title, body)
+		if lastInsertId > 0 {
+			// Go 标准库的 strconv 包。此包主要提供字符串和其他类型之间转换的函数。
+			//类型转换在脚本类语言例如说 PHP 或者 JS 中不需要太重视，
+			// 但在 Go 强类型语言中是一个很重要的概念。
+			fmt.Fprint(w, "插入成功，ID为"+strconv.FormatInt(lastInsertId, 10))
+		} else {
+			checkError(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, "500 服务器内部错误")
+		}
+
 	} else {
 		storeURL, _ := router.Get("articles.store").URL()
 
@@ -140,6 +154,44 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 
 		tmpl.Execute(w, data)
 	}
+}
+
+func saveArticleToDB(title string, body string) (int64, error) {
+	/**
+	多变量声明的方式与引入多个包使用 import(...) 同出一辙，
+	都是 Go 语言为了让开发者少写代码而提供的简写方式。
+	*/
+	var (
+		id   int64
+		err  error
+		rs   sql.Result
+		stmt *sql.Stmt
+	)
+
+	//	获取一个prepare
+	// 在数据库安全方面，Prepare 语句是防范 SQL 注入攻击有效且必备的手段。
+	// 可以理解为将包含变量占位符 ? 的语句先告知 MySQL 服务器端。
+	// Prepare 只会生产 stmt ，真正执行请求的需要调用 stmt.Exec()
+	stmt, err = db.Prepare("INSERT INTO articles (title, body) VALUES(?,?)")
+	//	例行错误检测
+	if err != nil {
+		return 0, err
+	}
+
+	defer stmt.Close()
+
+	//执行请求
+	rs, err = stmt.Exec(title, body)
+	if err != nil {
+		return 0, err
+	}
+
+	//插入成功的话返回自增ID
+	if id, err = rs.LastInsertId(); id > 0 {
+		return id, err
+	}
+
+	return 0, err
 }
 
 func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
