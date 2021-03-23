@@ -190,6 +190,8 @@ func main() {
 	//可以看到有 / 的链接会报 404 错误：
 	//Gorilla Mux 提供了一个 StrictSlash(value bool) 函数处理`/`问题
 	initDB()
+	createTables()
+
 	router.HandleFunc("/", homeHandler).Methods("GET").Name("home")
 	router.HandleFunc("/about", aboutHandler).Methods("GET").Name("about")
 
@@ -270,4 +272,18 @@ func checkError(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func createTables() {
+	createArticlesSQL := `CREATE TABLE IF NOT EXISTS articles(
+    id bigint(20) PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    title varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+    body longtext COLLATE utf8mb4_unicode_ci
+); `
+	/**
+	Exec() 来执行创建数据库表结构的语句。
+	一般使用 sql.DB 中的 Exec() 来执行没有返回结果集的 SQL 语句
+	*/
+	_, err := db.Exec(createArticlesSQL)
+	checkError(err)
 }
