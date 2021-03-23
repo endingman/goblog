@@ -63,21 +63,10 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 
 func articlesShowHandler(w http.ResponseWriter, r *http.Request) {
 	//	获取URL参数
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := getRouteVariable("id", r)
 
 	//读取对应文章数据
-	article := Article{}
-	query := "SELECT * FROM articles WHERE id = ?"
-	// QueryRow() 是可变参数的方法，参数可以为一个或者多个。
-	// 参数只有一个的情况下，我们称之为纯文本模式，多个参数的情况下称之为 Prepare 模式。
-	// QueryRow() 封装了 Prepare 方法的调用
-	/**
-	QueryRow() 会返回一个 sql.Row struct，紧接着我们使用链式调用的方式调用了 sql.Row.Scan() 方法：
-	db.QueryRow(query, id).Scan(&article.ID, &article.Title, &article.Body)
-	Scan() 将查询结果赋值到我们的 article struct 中，传参应与数据表字段的顺序保持一致。
-	*/
-	err := db.QueryRow(query, id).Scan(&article.ID, &article.Title, &article.Body)
+	article, err := getArticleByID(id)
 
 	//	如果出现错误
 	if err != nil {
@@ -131,28 +120,7 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
 
-	errors := make(map[string]string)
-
-	// 验证标题
-	if title == "" {
-		errors["title"] = "标题不能为空"
-		/**
-		Go 语言的内建函数 len ()，可以用来获取切片、字符串、通道（channel）等的长度。
-
-		这里的差异是由于 Go 语言的字符串都以 UTF-8 格式保存，每个中文占用 3 个字节，因此使用 len () 获得两个中文文字对应的 6 个字节。
-
-		如果希望按习惯上的字符个数来计算，就需要使用 Go 语言中 utf8 包提供的 RuneCountInString () 函数来计数
-		*/
-	} else if utf8.RuneCountInString(title) < 3 || utf8.RuneCountInString(title) > 40 {
-		errors["title"] = "标题长度需介于 3-40"
-	}
-
-	// 验证内容
-	if body == "" {
-		errors["body"] = "内容不能为空"
-	} else if utf8.RuneCountInString(body) < 10 {
-		errors["body"] = "内容长度需大于或等于 10 个字节"
-	}
+	errors := validateArticleFormData(title, body)
 
 	// 检查是否有错误
 	if len(errors) == 0 {
@@ -287,7 +255,8 @@ func main() {
 	router.HandleFunc("/articles", articlesIndexHandler).Methods("GET").Name("articles.index")
 	router.HandleFunc("/articles", articlesStoreHandler).Methods("POST").Name("articles.store")
 	router.HandleFunc("/articles/create", articlesCreateHandler).Methods("GET").Name("articles.create")
-
+	router.HandleFunc("/articles/{id:[0-9]+}/edit", articlesEditHandler).Methods("GET").Name("articles.edit")
+	router.HandleFunc("/articles/{id:[0-9]+}", articlesUpdateHandler).Methods("POST").Name("articles.update")
 	// 自定义 404 页面
 	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 
@@ -302,6 +271,118 @@ func main() {
 
 	//http.ListenAndServe 用以监听本地 3000 端口以提供服务，标准的 HTTP 端口是 80 端口
 	http.ListenAndServe(":3000", removeTrailingSlash(router))
+}
+
+func articlesEditHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. 获取 URL 参数
+	id := getRouteVariable("id", r)
+	// 2. 读取对应的文章数据
+	article, err := getArticleByID(id)
+
+	// 3. 如果出现错误
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// 3.1 数据未找到
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, "404 文章未找到")
+		} else {
+			// 3.2 数据库错误
+			checkError(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, "500 服务器内部错误")
+		}
+	} else {
+		// 4. 读取成功，显示表单
+		updateURL, _ := router.Get("articles.update").URL("id", id)
+		data := ArticlesFormData{
+			Title:  article.Title,
+			Body:   article.Body,
+			URL:    updateURL,
+			Errors: nil,
+		}
+		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
+		checkError(err)
+
+		tmpl.Execute(w, data)
+	}
+}
+func getRouteVariable(parameterName string, r *http.Request) string {
+	vars := mux.Vars(r)
+	return vars[parameterName]
+}
+
+func articlesUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. 获取 URL 参数
+	id := getRouteVariable("id", r)
+
+	// 2. 读取对应的文章数据
+	_, err := getArticleByID(id)
+
+	// 3. 如果出现错误
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// 3.1 数据未找到
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, "404 文章未找到")
+		} else {
+			// 3.2 数据库错误
+			checkError(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, "500 服务器内部错误")
+		}
+	} else {
+		// 4. 未出现错误
+
+		// 4.1 表单验证
+		title := r.PostFormValue("title")
+		body := r.PostFormValue("body")
+
+		errors := validateArticleFormData(title, body)
+
+		if len(errors) == 0 {
+
+			// 4.2 表单验证通过，更新数据
+			/**
+			Exec () 方法
+			执行数据更新的是 Exec() 方法，此方法与我们之前学习 Prepare 方法时搭配使用 stmt.Exec() 不一样，
+			stmt.Exec() 是 sql.Stmt 的方法，而这里的 Exec() 是 sql.DB 提供的方法。
+
+			一般情况下，我们使用此方法来处理 CREATE、UPDATE、DELETE 类型的 SQL。
+
+			与 createTables() 方法中使用的 Exec() 一致
+			*/
+			query := "UPDATE articles SET title = ?, body = ? WHERE id = ?"
+			rs, err := db.Exec(query, title, body, id)
+
+			if err != nil {
+				checkError(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprint(w, "500 服务器内部错误")
+			}
+
+			// √ 更新成功，跳转到文章详情页
+			if n, _ := rs.RowsAffected(); n > 0 {
+				showURL, _ := router.Get("articles.show").URL("id", id)
+				http.Redirect(w, r, showURL.String(), http.StatusFound)
+			} else {
+				fmt.Fprint(w, "您没有做任何更改！")
+			}
+		} else {
+
+			// 4.3 表单验证不通过，显示理由
+			updateURL, _ := router.Get("articles.update").URL("id", id)
+			data := ArticlesFormData{
+				Title:  title,
+				Body:   body,
+				URL:    updateURL,
+				Errors: errors,
+			}
+			tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
+			checkError(err)
+
+			tmpl.Execute(w, data)
+		}
+	}
 }
 
 func initDB() {
@@ -374,4 +455,39 @@ func createTables() {
 	*/
 	_, err := db.Exec(createArticlesSQL)
 	checkError(err)
+}
+
+func getArticleByID(id string) (Article, error) {
+	// QueryRow() 是可变参数的方法，参数可以为一个或者多个。
+	// 参数只有一个的情况下，我们称之为纯文本模式，多个参数的情况下称之为 Prepare 模式。
+	// QueryRow() 封装了 Prepare 方法的调用
+	/**
+	QueryRow() 会返回一个 sql.Row struct，紧接着我们使用链式调用的方式调用了 sql.Row.Scan() 方法：
+	db.QueryRow(query, id).Scan(&article.ID, &article.Title, &article.Body)
+	Scan() 将查询结果赋值到我们的 article struct 中，传参应与数据表字段的顺序保持一致。
+	*/
+	article := Article{}
+	query := "SELECT * FROM articles WHERE id = ?"
+	err := db.QueryRow(query, id).Scan(&article.ID, &article.Title, &article.Body)
+
+	return article, err
+}
+
+func validateArticleFormData(title string, body string) map[string]string {
+	errors := make(map[string]string)
+	// 验证标题
+	if title == "" {
+		errors["title"] = "标题不能为空"
+	} else if utf8.RuneCountInString(title) < 3 || utf8.RuneCountInString(title) > 40 {
+		errors["title"] = "标题长度需介于 3-40"
+	}
+
+	// 验证内容
+	if body == "" {
+		errors["body"] = "内容不能为空"
+	} else if utf8.RuneCountInString(body) < 10 {
+		errors["body"] = "内容长度需大于或等于 10 个字节"
+	}
+
+	return errors
 }
