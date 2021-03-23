@@ -31,6 +31,11 @@ type ArticlesFormData struct {
 	Errors      map[string]string
 }
 
+type Article struct {
+	Title, Body string
+	ID          int64
+}
+
 /**
 http.HandleFunc 用以指定处理 HTTP 请求的函数，
 此函数允许我们只写一个 handler（在此例子中 handlerFunc，可任意命名），
@@ -57,9 +62,40 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func articlesShowHandler(w http.ResponseWriter, r *http.Request) {
+	//	获取URL参数
 	vars := mux.Vars(r)
 	id := vars["id"]
-	fmt.Fprint(w, "文章 ID："+id)
+
+	//读取对应文章数据
+	article := Article{}
+	query := "SELECT * FROM articles WHERE id = ?"
+	// QueryRow() 是可变参数的方法，参数可以为一个或者多个。
+	// 参数只有一个的情况下，我们称之为纯文本模式，多个参数的情况下称之为 Prepare 模式。
+	// QueryRow() 封装了 Prepare 方法的调用
+	/**
+	QueryRow() 会返回一个 sql.Row struct，紧接着我们使用链式调用的方式调用了 sql.Row.Scan() 方法：
+	db.QueryRow(query, id).Scan(&article.ID, &article.Title, &article.Body)
+	Scan() 将查询结果赋值到我们的 article struct 中，传参应与数据表字段的顺序保持一致。
+	*/
+	err := db.QueryRow(query, id).Scan(&article.ID, &article.Title, &article.Body)
+
+	//	如果出现错误
+	if err != nil {
+		if err == sql.ErrNoRows {
+			//	数据未找到
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, "404 文章未找到")
+		} else {
+			checkError(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, "500 服务器内部错误")
+		}
+	} else {
+		// 4. 读取成功，显示文章
+		tmpl, err := template.ParseFiles("resources/views/articles/show.gohtml")
+		checkError(err)
+		tmpl.Execute(w, article)
+	}
 }
 
 func articlesIndexHandler(w http.ResponseWriter, r *http.Request) {
