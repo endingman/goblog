@@ -3,16 +3,17 @@ package routes
 import (
 	"github.com/gorilla/mux"
 	"goblog/app/http/controllers"
-	"goblog/app/http/middlewares"
 	"net/http"
 )
 
+// RegisterWebRoutes 注册网页相关路由
 func RegisterWebRoutes(r *mux.Router) {
 	//静态页面
 	pc := new(controllers.PagesController)
 	r.HandleFunc("/", pc.Home).Methods("GET").Name("home")
 	r.HandleFunc("/about", pc.About).Methods("GET").Name("about")
 	r.NotFoundHandler = http.HandlerFunc(pc.NotFound)
+
 	//	articles
 	ac := new(controllers.ArticlesController)
 	r.HandleFunc("/articles/{id:[0-9]+}", ac.Show).Methods("GET").Name("articles.show")
@@ -22,6 +23,11 @@ func RegisterWebRoutes(r *mux.Router) {
 	r.HandleFunc("/articles/{id:[0-9]+}/edit", ac.Edit).Methods("GET").Name("articles.edit")
 	r.HandleFunc("/articles/{id:[0-9]+}", ac.Update).Methods("POST").Name("articles.update")
 	r.HandleFunc("/articles/{id:[0-9]+}/delete", ac.Delete).Methods("POST").Name("articles.delete")
+
+	// 静态资源
+	r.PathPrefix("/css/").Handler(http.FileServer(http.Dir("./public")))
+	r.PathPrefix("/js/").Handler(http.FileServer(http.Dir("./public")))
+
 	// 中间件：强制内容类型为 HTML
-	r.Use(middlewares.ForceHTML)
+	//r.Use(middlewares.ForceHTML)
 }
