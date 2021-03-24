@@ -50,8 +50,6 @@ func main() {
 
 	router := bootstrap.SetupRoute()
 
-	router.HandleFunc("/articles", articlesStoreHandler).Methods("POST").Name("articles.store")
-	router.HandleFunc("/articles/create", articlesCreateHandler).Methods("GET").Name("articles.create")
 	router.HandleFunc("/articles/{id:[0-9]+}/edit", articlesEditHandler).Methods("GET").Name("articles.edit")
 	router.HandleFunc("/articles/{id:[0-9]+}", articlesUpdateHandler).Methods("POST").Name("articles.update")
 	router.HandleFunc("/articles/{id:[0-9]+}/delete", articlesDeleteHandler).Methods("POST").Name("articles.delete")
@@ -67,75 +65,6 @@ func main() {
 
 	//http.ListenAndServe 用以监听本地 3000 端口以提供服务，标准的 HTTP 端口是 80 端口
 	http.ListenAndServe(":3000", removeTrailingSlash(router))
-}
-
-func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
-	//Form：存储了 post、put 和 get 参数，在使用之前需要调用 ParseForm 方法。
-	//PostForm：存储了 post、put 参数，在使用之前需要调用 ParseForm 方法。
-
-	/**
-	err := r.ParseForm()
-	if err != nil {
-		fmt.Fprint(w, "请提供正确的参数")
-		return
-	}
-
-	title := r.PostForm.Get("title")
-
-
-	fmt.Fprintf(w, "POST PostForm: %v <br>", r.PostForm)
-	fmt.Fprintf(w, "POST Form: %v <br>", r.Form)
-	fmt.Fprintf(w, "title 的值为: %v", title)
-
-	//如不想获取所有的请求内容，而是逐个获取的话，这也是比较常见的操作，
-	// 无需使用 r.ParseForm() 可直接使用 r.FormValue() 和 r.PostFormValue() 方法
-	fmt.Fprintf(w, "r.Form 中 title 的值为: %v <br>", r.FormValue("title"))
-	fmt.Fprintf(w, "r.PostForm 中 title 的值为: %v <br>", r.PostFormValue("title"))
-	fmt.Fprintf(w, "r.Form 中 test 的值为: %v <br>", r.FormValue("test"))
-	fmt.Fprintf(w, "r.PostForm 中 test 的值为: %v <br>", r.PostFormValue("test"))
-	*/
-
-	title := r.PostFormValue("title")
-	body := r.PostFormValue("body")
-
-	errors := validateArticleFormData(title, body)
-
-	// 检查是否有错误
-	if len(errors) == 0 {
-		fmt.Fprint(w, "验证通过!<br>")
-		fmt.Fprintf(w, "title 的值为: %v <br>", title)
-		fmt.Fprintf(w, "title 的长度为: %v <br>", utf8.RuneCountInString(title))
-		fmt.Fprintf(w, "body 的值为: %v <br>", body)
-		fmt.Fprintf(w, "body 的长度为: %v <br>", utf8.RuneCountInString(body))
-
-		lastInsertId, err := saveArticleToDB(title, body)
-		if lastInsertId > 0 {
-			// Go 标准库的 strconv 包。此包主要提供字符串和其他类型之间转换的函数。
-			//类型转换在脚本类语言例如说 PHP 或者 JS 中不需要太重视，
-			// 但在 Go 强类型语言中是一个很重要的概念。
-			fmt.Fprint(w, "插入成功，ID为"+types.Int64ToString(lastInsertId))
-		} else {
-			logger.LogError(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, "500 服务器内部错误")
-		}
-
-	} else {
-		storeURL, _ := router.Get("articles.store").URL()
-
-		data := ArticlesFormData{
-			Title:  title,
-			Body:   body,
-			URL:    storeURL,
-			Errors: errors,
-		}
-		tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
-		if err != nil {
-			panic(err)
-		}
-
-		tmpl.Execute(w, data)
-	}
 }
 
 func saveArticleToDB(title string, body string) (int64, error) {
@@ -174,27 +103,6 @@ func saveArticleToDB(title string, body string) (int64, error) {
 	}
 
 	return 0, err
-}
-
-func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
-	storeURL, _ := router.Get("articles.store").URL()
-	data := ArticlesFormData{
-		Title:  "",
-		Body:   "",
-		URL:    storeURL,
-		Errors: nil,
-	}
-	tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
-	if err != nil {
-		/**
-		在 Go 中，一般 err 处理方式可以是给用户提示或记录到错误日志里，这种很多时候为 业务逻辑错误。
-		当有重大错误，或者系统错误时，例如无法加载模板文件，就使用 panic() 。
-		应用里需要有一套合理的错误机制，后面的开发中我们会详细讲解到。
-		*/
-		panic(err)
-	}
-
-	tmpl.Execute(w, data)
 }
 
 func forceHTMLMiddleware(next http.Handler) http.Handler {
