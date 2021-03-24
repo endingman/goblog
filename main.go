@@ -50,7 +50,6 @@ func main() {
 
 	router := bootstrap.SetupRoute()
 
-	router.HandleFunc("/articles", articlesIndexHandler).Methods("GET").Name("articles.index")
 	router.HandleFunc("/articles", articlesStoreHandler).Methods("POST").Name("articles.store")
 	router.HandleFunc("/articles/create", articlesCreateHandler).Methods("GET").Name("articles.create")
 	router.HandleFunc("/articles/{id:[0-9]+}/edit", articlesEditHandler).Methods("GET").Name("articles.edit")
@@ -68,32 +67,6 @@ func main() {
 
 	//http.ListenAndServe 用以监听本地 3000 端口以提供服务，标准的 HTTP 端口是 80 端口
 	http.ListenAndServe(":3000", removeTrailingSlash(router))
-}
-
-func articlesIndexHandler(w http.ResponseWriter, r *http.Request) {
-	//	执行查询语句，返回一个结果集
-	rows, err := db.Query("SELECT  * FROM  articles")
-	logger.LogError(err)
-	defer rows.Close()
-
-	var articles []Article
-	//循环读取结果
-	for rows.Next() {
-		var article Article
-		//	扫描数据赋值给article对象中
-		err := rows.Scan(&article.ID, &article.Title, &article.Body)
-		logger.LogError(err)
-		//	追加到数组中
-		articles = append(articles, article)
-	}
-	//	检测遍历时是否发生错误
-	err = rows.Err()
-	logger.LogError(err)
-	//加载模板
-	tmpl, err := template.ParseFiles("resources/views/articles/index.gohtml")
-	logger.LogError(err)
-	//	渲染模板
-	tmpl.Execute(w, articles)
 }
 
 func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
@@ -441,37 +414,6 @@ func validateArticleFormData(title string, body string) map[string]string {
 	}
 
 	return errors
-}
-
-/**
-type Object struct {
-    ...
-}
-// Object 的方法
-func (obj *Object) method() {
-    ...
-}
-
-// 只是一个函数
-func function() {
-    ...
-}
-
-调用的对比
-// 调用方法：
-o := new(Object)
-o.method()
-
-// 调用函数
-function()
-*/
-func (a Article) Link() string {
-	showURL, err := router.Get("articles.show").URL("id", types.Int64ToString(a.ID))
-	if err != nil {
-		logger.LogError(err)
-		return ""
-	}
-	return showURL.String()
 }
 
 func getRouteVariable(parameterName string, r *http.Request) string {
