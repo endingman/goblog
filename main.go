@@ -8,7 +8,6 @@ import (
 	"goblog/pkg/database"
 	"goblog/pkg/logger"
 	"goblog/pkg/types"
-	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
@@ -50,8 +49,6 @@ func main() {
 
 	router := bootstrap.SetupRoute()
 
-	router.HandleFunc("/articles/{id:[0-9]+}/edit", articlesEditHandler).Methods("GET").Name("articles.edit")
-	router.HandleFunc("/articles/{id:[0-9]+}", articlesUpdateHandler).Methods("POST").Name("articles.update")
 	router.HandleFunc("/articles/{id:[0-9]+}/delete", articlesDeleteHandler).Methods("POST").Name("articles.delete")
 
 	// 中间件：强制内容类型为 HTML
@@ -179,114 +176,6 @@ func (a Article) Delete() (rowsAffected int64, err error) {
 	}
 
 	return 0, nil
-}
-
-func articlesEditHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. 获取 URL 参数
-	id := getRouteVariable("id", r)
-	// 2. 读取对应的文章数据
-	article, err := getArticleByID(id)
-
-	// 3. 如果出现错误
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// 3.1 数据未找到
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, "404 文章未找到")
-		} else {
-			// 3.2 数据库错误
-			logger.LogError(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, "500 服务器内部错误")
-		}
-	} else {
-		// 4. 读取成功，显示表单
-		updateURL, _ := router.Get("articles.update").URL("id", id)
-		data := ArticlesFormData{
-			Title:  article.Title,
-			Body:   article.Body,
-			URL:    updateURL,
-			Errors: nil,
-		}
-		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
-		logger.LogError(err)
-
-		tmpl.Execute(w, data)
-	}
-}
-
-func articlesUpdateHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. 获取 URL 参数
-	id := getRouteVariable("id", r)
-
-	// 2. 读取对应的文章数据
-	_, err := getArticleByID(id)
-
-	// 3. 如果出现错误
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// 3.1 数据未找到
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, "404 文章未找到")
-		} else {
-			// 3.2 数据库错误
-			logger.LogError(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, "500 服务器内部错误")
-		}
-	} else {
-		// 4. 未出现错误
-
-		// 4.1 表单验证
-		title := r.PostFormValue("title")
-		body := r.PostFormValue("body")
-
-		errors := validateArticleFormData(title, body)
-
-		if len(errors) == 0 {
-
-			// 4.2 表单验证通过，更新数据
-			/**
-			Exec () 方法
-			执行数据更新的是 Exec() 方法，此方法与我们之前学习 Prepare 方法时搭配使用 stmt.Exec() 不一样，
-			stmt.Exec() 是 sql.Stmt 的方法，而这里的 Exec() 是 sql.DB 提供的方法。
-
-			一般情况下，我们使用此方法来处理 CREATE、UPDATE、DELETE 类型的 SQL。
-
-			与 createTables() 方法中使用的 Exec() 一致
-			*/
-			query := "UPDATE articles SET title = ?, body = ? WHERE id = ?"
-			rs, err := db.Exec(query, title, body, id)
-
-			if err != nil {
-				logger.LogError(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprint(w, "500 服务器内部错误")
-			}
-
-			// √ 更新成功，跳转到文章详情页
-			if n, _ := rs.RowsAffected(); n > 0 {
-				showURL, _ := router.Get("articles.show").URL("id", id)
-				http.Redirect(w, r, showURL.String(), http.StatusFound)
-			} else {
-				fmt.Fprint(w, "您没有做任何更改！")
-			}
-		} else {
-
-			// 4.3 表单验证不通过，显示理由
-			updateURL, _ := router.Get("articles.update").URL("id", id)
-			data := ArticlesFormData{
-				Title:  title,
-				Body:   body,
-				URL:    updateURL,
-				Errors: errors,
-			}
-			tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
-			logger.LogError(err)
-
-			tmpl.Execute(w, data)
-		}
-	}
 }
 
 func getArticleByID(id string) (Article, error) {
