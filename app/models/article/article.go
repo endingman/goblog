@@ -8,7 +8,6 @@ import (
 
 type Article struct {
 	models.BaseModel
-	ID    int
 	Title string
 	Body  string
 }
