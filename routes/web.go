@@ -30,4 +30,9 @@ func RegisterWebRoutes(r *mux.Router) {
 
 	// 中间件：强制内容类型为 HTML
 	//r.Use(middlewares.ForceHTML)
+
+	// 用户认证
+	auc := new(controllers.AuthController)
+	r.HandleFunc("/auth/register", auc.Register).Methods("GET").Name("auth.register")
+	r.HandleFunc("/auth/do-register", auc.DoRegister).Methods("POST").Name("auth.doregister")
 }
