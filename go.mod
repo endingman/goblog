@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/sessions v1.2.1
 	github.com/jinzhu/now v1.1.2 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/thedevsaddam/govalidator v1.9.10
