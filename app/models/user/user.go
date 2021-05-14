@@ -1,6 +1,9 @@
 package user
 
-import "goblog/app/models"
+import (
+	"goblog/app/models"
+	"goblog/pkg/route"
+)
 
 type User struct {
 	models.BaseModel
@@ -11,4 +14,14 @@ type User struct {
 
 	// gorm:"-" —— 设置 GORM 在读写时略过此字段，仅用于表单验证
 	PasswordConfirm string `gorm:"-" valid:"password_confirm"`
+}
+
+// ComparePassword 对比密码是否匹配
+func (u User) ComparePassword(password string) bool {
+	return u.Password == password
+}
+
+// Link 方法用来生成用户链接
+func (u User) Link() string {
+	return route.Name2URL("users.show", "id", u.GetStringID())
 }
