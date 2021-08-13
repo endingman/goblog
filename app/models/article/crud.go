@@ -46,7 +46,7 @@ func (article *Article) Update() (rowsAffected int64, err error) {
 	return result.RowsAffected, nil
 }
 
-// Update 更新文章
+// Delete 更新文章
 func (article *Article) Delete() (rowsAffected int64, err error) {
 	result := model.DB.Delete(&article)
 	if err = result.Error; err != nil {
