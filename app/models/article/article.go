@@ -11,7 +11,7 @@ type Article struct {
 	models.BaseModel
 	Title  string `gorm:"type:varchar(255);not null" valid:"title"`
 	Body   string `gorm:"type:varchar(255);not null" valid:"body"`
-	UserId uint64 `gorm:"not null;index"`
+	UserID uint64 `gorm:"not null;index"`
 	User   user.User
 }
 
