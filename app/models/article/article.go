@@ -13,6 +13,8 @@ type Article struct {
 	Body   string `gorm:"type:varchar(255);not null" valid:"body"`
 	UserID uint64 `gorm:"not null;index"`
 	User   user.User
+
+	CategoryID uint64 `gorm:"not null;default:4;index"`
 }
 
 /**
